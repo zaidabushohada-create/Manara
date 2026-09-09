@@ -166,21 +166,29 @@ document.querySelectorAll('[data-goto]').forEach(el => {
 
 /* ============ Claude API helper ============ */
 async function askClaude(systemPrompt, userPrompt, maxTokens){
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
+  const res = await fetch('/api/claude', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
     body: JSON.stringify({
-      model:'claude-sonnet-4-6',
-      max_tokens: maxTokens || 1000,
-      system: systemPrompt,
-      messages:[{role:'user', content:userPrompt}]
+      systemPrompt: systemPrompt,
+      userPrompt: userPrompt,
+      maxTokens: maxTokens || 1000
     })
   });
-  if(!res.ok){ throw new Error('API error ' + res.status); }
+
   const data = await res.json();
-  const textBlock = (data.content || []).find(b => b.type === 'text');
-  if(!textBlock) throw new Error('no text response');
-  return textBlock.text;
+
+  if(!res.ok){
+    throw new Error(data.error || ('API error ' + res.status));
+  }
+
+  if(!data.text){
+    throw new Error('no text response');
+  }
+
+  return data.text;
 }
 
 function stripFences(t){
