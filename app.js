@@ -196,6 +196,135 @@ function stripFences(t){
 }
 
 function renderMarkdownish(container, text){
+  const lines = text.split('\n');
+
+  let html = '';
+  let inList = false;
+
+  let inMath = false;
+  let mathClose = '';
+  let mathLines = [];
+
+  function closeList(){
+    if(inList){
+      html += '</ul>';
+      inList = false;
+    }
+  }
+
+  function closeMath(){
+    closeList();
+
+    html += '<div class="math-block">' +
+      mathLines.join('\n') +
+      '</div>';
+
+    mathLines = [];
+    inMath = false;
+    mathClose = '';
+  }
+
+  for(let rawLine of lines){
+    let line = rawLine.trim();
+
+    // We are already inside a display equation
+    if(inMath){
+      mathLines.push(line);
+
+      if(line.includes(mathClose)){
+        closeMath();
+      }
+
+      continue;
+    }
+
+    // Start of \[ ... \]
+    if(line.startsWith('\\[')){
+      closeList();
+
+      inMath = true;
+      mathClose = '\\]';
+      mathLines = [line];
+
+      if(line.includes('\\]')){
+        closeMath();
+      }
+
+      continue;
+    }
+
+    // Start of $$ ... $$
+    if(line.startsWith('$$')){
+      closeList();
+
+      inMath = true;
+      mathClose = '$$';
+      mathLines = [line];
+
+      if(
+        line.length > 2 &&
+        line.substring(2).includes('$$')
+      ){
+        closeMath();
+      }
+
+      continue;
+    }
+
+    if(!line){
+      closeList();
+      continue;
+    }
+
+    line = line.replace(
+      /\*\*(.+?)\*\*/g,
+      '<b>$1</b>'
+    );
+
+    if(/^[-•]\s+/.test(line)){
+
+      if(!inList){
+        html += '<ul>';
+        inList = true;
+      }
+
+      html += '<li>' +
+        line.replace(/^[-•]\s+/, '') +
+        '</li>';
+
+    } else if(/^#{1,3}\s+/.test(line)){
+
+      closeList();
+
+      html += '<h4>' +
+        line.replace(/^#{1,3}\s+/, '') +
+        '</h4>';
+
+    } else {
+
+      closeList();
+
+      html += '<p>' +
+        line +
+        '</p>';
+    }
+  }
+
+  closeList();
+
+  if(inMath){
+    closeMath();
+  }
+
+  container.innerHTML = html;
+
+  // Render LaTeX equations with MathJax
+  if(window.MathJax && MathJax.typesetPromise){
+    MathJax.typesetPromise([container]).catch(
+      err => console.error('MathJax error:', err)
+    );
+  }
+}
   // lightweight formatter: turns lines starting with - into <li>, blank lines into breaks, **bold** into <b>
   const lines = text.split('\n');
   let html = '';
