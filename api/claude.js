@@ -1,5 +1,4 @@
 export default async function handler(req, res) {
-  // Allow POST only
   if (req.method !== 'POST') {
     return res.status(405).json({
       error: 'Method not allowed'
@@ -27,28 +26,31 @@ export default async function handler(req, res) {
       2000
     );
 
-    const anthropicResponse = await fetch(
-      'https://api.anthropic.com/v1/messages',
+    const response = await fetch(
+      'https://openrouter.ai/api/v1/chat/completions',
       {
         method: 'POST',
 
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': process.env.ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01'
+          'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          'HTTP-Referer': 'https://manara-kappa.vercel.app',
+          'X-Title': 'Manara'
         },
 
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
+          model: 'openrouter/free',
 
           max_tokens: safeMaxTokens,
 
-          system:
-            typeof systemPrompt === 'string'
-              ? systemPrompt
-              : '',
-
           messages: [
+            {
+              role: 'system',
+              content:
+                typeof systemPrompt === 'string'
+                  ? systemPrompt
+                  : 'You are a helpful educational assistant.'
+            },
             {
               role: 'user',
               content: userPrompt
@@ -58,34 +60,33 @@ export default async function handler(req, res) {
       }
     );
 
-    const data = await anthropicResponse.json();
+    const data = await response.json();
 
-    if (!anthropicResponse.ok) {
-  const errorMessage =
-    data?.error?.message ||
-    JSON.stringify(data);
+    if (!response.ok) {
+      const errorMessage =
+        data?.error?.message ||
+        JSON.stringify(data);
 
-  console.error(
-    `Anthropic API ${anthropicResponse.status}: ${errorMessage}`
-  );
+      console.error(
+        `OpenRouter API ${response.status}: ${errorMessage}`
+      );
 
-  return res.status(anthropicResponse.status).json({
-    error: errorMessage
-  });
-}
+      return res.status(response.status).json({
+        error: errorMessage
+      });
+    }
 
-    const textBlock = (data.content || []).find(
-      block => block.type === 'text'
-    );
+    const text =
+      data?.choices?.[0]?.message?.content;
 
-    if (!textBlock) {
+    if (!text) {
       return res.status(500).json({
-        error: 'Claude returned no text'
+        error: 'AI returned no text'
       });
     }
 
     return res.status(200).json({
-      text: textBlock.text
+      text: text
     });
 
   } catch (error) {
