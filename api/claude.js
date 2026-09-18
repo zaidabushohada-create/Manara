@@ -61,12 +61,18 @@ export default async function handler(req, res) {
     const data = await anthropicResponse.json();
 
     if (!anthropicResponse.ok) {
-      console.error('Anthropic error:', data);
+  const errorMessage =
+    data?.error?.message ||
+    JSON.stringify(data);
 
-      return res.status(anthropicResponse.status).json({
-        error: 'Claude API request failed'
-      });
-    }
+  console.error(
+    `Anthropic API ${anthropicResponse.status}: ${errorMessage}`
+  );
+
+  return res.status(anthropicResponse.status).json({
+    error: errorMessage
+  });
+}
 
     const textBlock = (data.content || []).find(
       block => block.type === 'text'
